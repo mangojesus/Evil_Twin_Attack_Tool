@@ -73,10 +73,12 @@ def interface_handle_packet(pkt, network_interfaces, currchanel):
                 rates = pkt.getlayer(Dot11Elt).info
 
                 # Get the maximum data rate (in Mbps) from the supported rates
-                max_rate = max(rates)
-
-                # Convert the rate to Mbps
-                max_rate_mbps = (max_rate & 0x7F) * 0.5
+                if rates:
+                    max_rate = max(rates)
+                    # Convert the rate to Mbps
+                    max_rate_mbps = (max_rate & 0x7F) * 0.5
+                else:
+                    max_rate_mbps = 0
 
                 network_interfaces.get(bssid).MB = max_rate_mbps
 
@@ -91,7 +93,7 @@ def single_network_handle_packet(pkt, users_list, chosen_network_interface):
             mac_address = pkt.addr1
             users_list.add(mac_address)
 
-iface = "wlxc83a35c2e0a2"
+iface = "wlxc83a35c2e0b7"
 channels = get_adapter_chanels(iface)
 set_adapter_to_monitor(iface)
 network_interfaces = {}
