@@ -61,4 +61,7 @@ password = "E1y2!3o4n5"
 set_adapter_to_monitor(interface)
 start_ap(interface)
 create_ap_config(ap_name, password, interface)
+# stop_ap(interface)
+
+
 

