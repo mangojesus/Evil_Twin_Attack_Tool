@@ -2,13 +2,13 @@ import os
 import subprocess
 import time
 
-def set_adapter_to_monitor(iface):
-    os.system(f"sudo ifconfig {iface} down")
-    os.system(f"sudo iwconfig {iface} mode monitor")
-    os.system(f"sudo ifconfig {iface} up")
+def set_adapter_to_monitor(iface_wifi):
+    os.system(f"sudo ifconfig {iface_wifi} down")
+    os.system(f"sudo iwconfig {iface_wifi} mode monitor")
+    os.system(f"sudo ifconfig {iface_wifi} up")
 
 
-def start_ap(iface):
+def start_ap(iface_wifi):
     # Stop any existing DHCP servers
     subprocess.call(['sudo', 'service', 'isc-dhcp-server', 'stop'])
 
@@ -25,7 +25,7 @@ def start_ap(iface):
         f.write('}\n')
 
     # Configure the access point
-    subprocess.call(['sudo', 'ifconfig', iface, '192.168.42.1'])
+    subprocess.call(['sudo', 'ifconfig', iface_wifi, '192.168.42.1'])
     subprocess.call(['sudo', 'hostapd', '-B', '/etc/hostapd/hostapd.conf'])
     subprocess.call(['sudo', 'service', 'isc-dhcp-server', 'start'])
 
@@ -38,8 +38,8 @@ def stop_ap(iface):
     subprocess.call(['sudo', 'hostapd', '-B', '/etc/hostapd/hostapd.conf', '-i', iface, '-K'])
     subprocess.call(['sudo', 'ifconfig', iface, 'down'])
 
-def create_ap_config(ssid, password, iface):
-    config_file = f"""interface={iface}
+def create_ap_config(ssid, password, iface_wifi):
+    config_file = f"""interface={iface_wifi}
 ssid={ssid}
 wpa=2
 wpa_passphrase={password}
@@ -55,7 +55,7 @@ channel=6"""
 
 
 interface = "wlxc83a35c2e0a2"
-ap_name = "eylon&michael"
+ssid = "eylon&michael"
 password = "E1y2!3o4n5"
 
 set_adapter_to_monitor(interface)
