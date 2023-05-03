@@ -1,6 +1,7 @@
 import os
 import subprocess
 import time
+import sys
 
 def set_adapter_to_monitor(iface_wifi):
     os.system(f"sudo ifconfig {iface_wifi} down")
@@ -11,7 +12,7 @@ def set_default_gateway(iface_wifi, gateway_ip):
     os.system(f"sudo route add default gw {gateway_ip} {iface_wifi}")
     subprocess.run(['sysctl', '-w', 'net.ipv4.ip_forward=1'], capture_output=True, text=True)
 
-def start_ap(iface_wifi, iface_router, gateway_ip):
+def start_ap(iface_wifi, iface_router, gateway_ip, portal_address):
     # Stop any existing DHCP servers
     subprocess.call(['sudo', 'service', 'isc-dhcp-server', 'stop'])
 
@@ -39,6 +40,14 @@ def start_ap(iface_wifi, iface_router, gateway_ip):
     subprocess.run(['sudo', 'sysctl', '-w', 'net.ipv4.ip_forward=1'], capture_output=True, text=True)
     subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'POSTROUTING', '-o', iface_router, '-j', 'MASQUERADE'])
 
+    # Redirect clients to the captive portal page
+    # subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'PREROUTING', '-i', iface_wifi, '-p', 'tcp', '--dport', '80', '-j', 'DNAT', '--to-destination', portal_address])
+    #
+    # # subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'PREROUTING', '-i', iface_wifi, '-p', 'tcp', '--dport', '443', '-j', 'DNAT', '--to-destination', portal_address])
+    #
+    # subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'PREROUTING', '-p', 'tcp', '--dport', '443', '-j', 'DNAT',
+    #                  '--to-destination', portal_address])
+
     # Wait for the access point to start
     time.sleep(5)
 
@@ -52,26 +61,29 @@ def stop_ap(iface_wifi, iface_router):
     subprocess.call(['sudo', 'hostapd', '-B', '/etc/hostapd/hostapd.conf', '-i', iface_wifi, '-K'])
     subprocess.call(['sudo', 'ifconfig', iface_wifi, 'down'])
 
-def create_ap_config(ssid, password, iface_wifi):
+def create_ap_config(ssid, iface_wifi):
     config_file = f"""interface={iface_wifi}
 ssid={ssid}
-wpa=2
-wpa_passphrase={password}
-wpa_key_mgmt=WPA-PSK
-wpa_pairwise=TKIP
-rsn_pairwise=CCMP
 driver=nl80211
 channel=6"""
     with open("/etc/hostapd/hostapd.conf", "w") as f:
         f.write(config_file)
 
+
 interface = "wlxc83a35c2e0a2"
 ssid = "eylon&michael"
-password = "E1y2!3o4n5"
+
+# Check that at least one argument was passed
+if len(sys.argv) > 1:
+    # Get the first argument and store it in a variable
+    ssid = sys.argv[1]
+
+ssid += "8"
+
 gateway_ip = "192.168.1.1"  # IP address of the router
 iface_router = "wlp0s20f3"
+portal_address = "192.168.1.33:5000"
 
 set_adapter_to_monitor(interface)
-start_ap(interface, iface_router, gateway_ip)
-create_ap_config(ssid, password, interface)
-# stop_ap(interface)
+start_ap(interface, iface_router, gateway_ip, portal_address)
+create_ap_config(ssid, interface)
