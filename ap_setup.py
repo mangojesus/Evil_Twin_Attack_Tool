@@ -61,22 +61,24 @@ def stop_ap(iface_wifi, iface_router):
     subprocess.call(['sudo', 'hostapd', '-B', '/etc/hostapd/hostapd.conf', '-i', iface_wifi, '-K'])
     subprocess.call(['sudo', 'ifconfig', iface_wifi, 'down'])
 
-def create_ap_config(ssid, iface_wifi):
+def create_ap_config(ssid, iface_wifi, wifi_channel):
     config_file = f"""interface={iface_wifi}
 ssid={ssid}
 driver=nl80211
-channel=6"""
+channel={wifi_channel}"""
     with open("/etc/hostapd/hostapd.conf", "w") as f:
         f.write(config_file)
 
 
 interface = "wlxc83a35c2e0a2"
 ssid = "eylon&michael"
+wifi_channel = 6
 
 # Check that at least one argument was passed
-if len(sys.argv) > 1:
+if len(sys.argv) > 2:
     # Get the first argument and store it in a variable
     ssid = sys.argv[1]
+    wifi_channel = sys.argv[2]
 
 ssid += "8"
 
@@ -86,4 +88,4 @@ portal_address = "192.168.1.33:5000"
 
 set_adapter_to_monitor(interface)
 start_ap(interface, iface_router, gateway_ip, portal_address)
-create_ap_config(ssid, interface)
+create_ap_config(ssid, interface, wifi_channel)

