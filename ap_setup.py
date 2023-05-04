@@ -12,6 +12,7 @@ def set_default_gateway(iface_wifi, gateway_ip):
     os.system(f"sudo route add default gw {gateway_ip} {iface_wifi}")
     subprocess.run(['sysctl', '-w', 'net.ipv4.ip_forward=1'], capture_output=True, text=True)
 
+
 def start_ap(iface_wifi, iface_router, gateway_ip, portal_address):
     # Stop any existing DHCP servers
     subprocess.call(['sudo', 'service', 'isc-dhcp-server', 'stop'])
@@ -41,10 +42,10 @@ def start_ap(iface_wifi, iface_router, gateway_ip, portal_address):
     subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'POSTROUTING', '-o', iface_router, '-j', 'MASQUERADE'])
 
     # Redirect clients to the captive portal page
-    # subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'PREROUTING', '-i', iface_wifi, '-p', 'tcp', '--dport', '80', '-j', 'DNAT', '--to-destination', portal_address])
-    #
-    # # subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'PREROUTING', '-i', iface_wifi, '-p', 'tcp', '--dport', '443', '-j', 'DNAT', '--to-destination', portal_address])
-    #
+    subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'PREROUTING', '-i', iface_wifi, '-p', 'tcp', '--dport', '80', '-j', 'DNAT', '--to-destination', portal_address])
+
+    subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'PREROUTING', '-i', iface_wifi, '-p', 'tcp', '--dport', '443', '-j', 'DNAT', '--to-destination', portal_address])
+
     # subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'PREROUTING', '-p', 'tcp', '--dport', '443', '-j', 'DNAT',
     #                  '--to-destination', portal_address])
 
@@ -84,7 +85,7 @@ ssid += "8"
 
 gateway_ip = "192.168.1.1"  # IP address of the router
 iface_router = "wlp0s20f3"
-portal_address = "192.168.1.33:5000"
+portal_address = "192.168.1.165:5000"
 
 set_adapter_to_monitor(interface)
 start_ap(interface, iface_router, gateway_ip, portal_address)

@@ -54,6 +54,8 @@ def interface_handle_packet(pkt, network_interfaces, currchanel):
         # Extract BSSID of the network this layer contain information about the network
         # as the source and destination MAC addresses, as well as the wireless management frame control field
         bssid = pkt[Dot11].addr2
+        if bssid is not None:
+            bssid = bssid.lower()
         # Print the SSID and BSSID of the network
         # if the packet is beacon we can also check the type is 0- management and the subtype is 8-beacon
         if pkt.type == 0 and pkt.subtype == 8:
@@ -111,12 +113,12 @@ def single_network_handle_packet(pkt, users_list, chosen_network_interface):
         if to_ds != 1 or from_ds != 1:
             # extract the bssids
             if to_ds == 0:
-                mac_address = pkt.addr1
-                bssid = pkt.addr2
+                mac_address = pkt.addr1.lower()
+                bssid = pkt.addr2.lower()
             else:
                 get_flag = 0
-                mac_address = pkt.addr2
-                bssid = pkt.addr1
+                mac_address = pkt.addr2.lower()
+                bssid = pkt.addr1.lower()
 
             # checks if the bssid is of the chosen interface
             if chosen_network_interface.BSSID == bssid:
@@ -137,7 +139,13 @@ def handle_packets_own_network(pkt, chosen_user, wifi_mac_address):
     if pkt.haslayer(Dot11):
         if pkt.type != 0 or pkt.subtype != 8:
             check_addr1 = pkt.addr1
+            if check_addr1 is not None:
+                check_addr1 = check_addr1.lower()
+
             check_addr2 = pkt.addr2
+            if check_addr2 is not None:
+                check_addr2 = check_addr2.lower()
+
             if (check_addr1 == chosen_user and check_addr2 == wifi_mac_address) or \
                     (check_addr1 == wifi_mac_address and check_addr2 == chosen_user):
                 flag_user_enters = False
@@ -150,7 +158,13 @@ def print_packets(pkt):
         # as the source and destination MAC addresses, as well as the wireless management frame control field
         if pkt.type != 0 or pkt.subtype != 8:
             check_addr1 = pkt.addr1
+            if check_addr1 is not None:
+                check_addr1 = check_addr1.lower()
+
             check_addr2 = pkt.addr2
+            if check_addr2 is not None:
+                check_addr2 = check_addr2.lower()
+
             if (check_addr1 == chosen_user and check_addr2 == wifi_mac_address) or \
                     (check_addr1 == wifi_mac_address and check_addr2 == chosen_user):
                 print(pkt)
@@ -160,8 +174,11 @@ def start_server():
     print(
         "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
 
+    iface_wifi = "wlxc83a35c2e0a2"
+    portal_address = "192.168.1.165:5000"
+
     # setting up the captive portal
-    command_captive_portal = ['sudo', 'python3', 'captive_portal.py']
+    command_captive_portal = ['sudo', 'python3', 'captive_portal_https.py', f"{iface_wifi}" , f"{portal_address}"]
 
     # Start the daemon process
     process_captive_portal = subprocess.Popen(command_captive_portal, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -227,7 +244,7 @@ chosen_network_interface = network_interfaces.get(chosen_interface)
 users_list = {}
 chosen_user = None
 while True:
-    # desplay the network that was choosen
+    # display the network that was chosen
     print(f"the network you choose is :\n{chosen_network_interface}")
     # change the channel to the network che
     os.system("iwconfig %s channel %d" % (iface, chosen_network_interface.CH))
