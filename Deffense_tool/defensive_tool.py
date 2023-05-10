@@ -63,13 +63,18 @@ def interface_handle_packet(pkt, network_interfaces, currchanel):
         # check if we got deauth packet
         if pkt.type == 0 and pkt.subtype == 12:
             seen_ssids = set()
+            deauth_time = time.time()
             # check if we got two wifi's with the same name, but different bssid
             for bssid, wifi in network_interfaces.items():
                 if wifi.SSID in seen_ssids:
                     print(f"Duplicate SSID {wifi.SSID} found in keys {bssid} and {prev_bssid}")
                     # check if the creation time between the 2 wifi's is less than 2 minutes
-                    if abs(wifi.CREATION_TIME - prev_wifi.CREATION_TIME) < 120:
-                        print("\033[31mSomeone is performing evil twin attack on you\033[0m")
+                    if wifi.CREATION_TIME > prev_wifi.CREATION_TIME:
+                        if abs(wifi.CREATION_TIME - deauth_time) < 60:
+                            print("\033[31mSomeone is performing evil twin attack on you\033[0m")
+                    else:
+                        if abs(prev_wifi.CREATION_TIME - deauth_time) < 60:
+                            print("\033[31mSomeone is performing evil twin attack on you\033[0m")
                 else:
                     seen_ssids.add(wifi.SSID)
                     prev_bssid = bssid
