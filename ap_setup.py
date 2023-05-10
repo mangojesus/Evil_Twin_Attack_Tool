@@ -81,8 +81,6 @@ if len(sys.argv) > 2:
     ssid = sys.argv[1]
     wifi_channel = sys.argv[2]
 
-ssid += "8"
-
 gateway_ip = "192.168.1.1"  # IP address of the router
 iface_router = "wlp0s20f3"
 portal_address = "10.100.102.122:5000"
