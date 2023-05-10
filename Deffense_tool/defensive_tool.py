@@ -66,7 +66,6 @@ def interface_handle_packet(pkt, network_interfaces, currchanel):
                         flag_deauth_time = 0
                     else:
                         if ssid == my_ssid and bssid != my_bssid:
-                            print("123456789")
                             print(f"\033[31mSomeone ssid:{ssid} bssid: {bssid} is performing evil twin attack on you\033[0m")
                         else:
                             network_interfaces[bssid] = network_interface(ssid, bssid, currchanel, creation_time)
@@ -99,7 +98,6 @@ def interface_handle_packet(pkt, network_interfaces, currchanel):
                     network_interfaces.get(bssid).MB = max_rate_mbps
         # check if we got deauth packet
         if pkt.type == 0 and pkt.subtype == 12:
-            print("enter")
             bssid = pkt[Dot11].addr2
             if bssid is not None:
                 bssid = bssid.lower()
